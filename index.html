@@ -2,17 +2,15 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p5.js 공 움직이기</title>
-  <!-- p5.js 라이브러리 불러오기 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>바닐라 JS 공 움직이기</title>
   <style>
-    /* 기본 여백을 없애고 스크롤바가 생기지 않도록 설정 */
     body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
+      overflow: hidden; /* 스크롤 방지 */
       background-color: #0f0f0f;
+      touch-action: none; /* 모바일 터치 스크롤 방지 */
     }
     canvas {
       display: block;
@@ -20,7 +18,13 @@
   </style>
 </head>
 <body>
+  <canvas id="gameCanvas"></canvas>
+
   <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
     let ballX, ballY;
     let moveSpeed = 7;
     let ballSize = 60;
@@ -29,15 +33,65 @@
     let offsetX, offsetY;
     let maxHistory = 80;
 
-    function setup() {
-      createCanvas(windowWidth, windowHeight);
-      ballX = width / 2;
-      ballY = height / 2;
-      noStroke();
+    // 입력 상태 변수
+    let mouseX = 0, mouseY = 0;
+    let mouseIsPressed = false;
+    let keys = {};
+
+    // 유틸리티 함수 (p5.js 기능 대체)
+    const map = (value, start1, stop1, start2, stop2) => start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+    const constrain = (n, low, high) => Math.max(Math.min(n, high), low);
+    const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+    
+    // 색상 설정 함수 (p5.js의 fill 역할, 투명도를 0~255로 받음)
+    function fill(r, g, b, a = 255) {
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
     }
 
+    // 원 그리기
+    function circle(x, y, d) {
+      ctx.beginPath();
+      ctx.arc(x, y, d / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 모서리가 둥근 사각형 (p5.js rectMode(CENTER) 방식)
+    function rectCenter(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h / 2, w, h, r);
+      ctx.fill();
+    }
+
+    // 삼각형 그리기
+    function triangle(x1, y1, x2, y2, x3, y3) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineTo(x3, y3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 화면 크기 설정 및 초기화 (p5.js setup 역할)
+    function setup() {
+      resizeCanvas();
+      ballX = width / 2;
+      ballY = height / 2;
+      requestAnimationFrame(draw); // 드로우 루프 시작
+    }
+
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    // 메인 루프 (p5.js draw 역할)
     function draw() {
-      background(15);
+      // 배경 지우기
+      fill(15, 15, 15);
+      ctx.fillRect(0, 0, width, height);
 
       let dpadSize = 60;
       let spacing = 70;
@@ -54,25 +108,23 @@
       let screenY = 0;
       let isScreenPressed = false;
 
+      // 화면 터치/마우스 버튼 조작
       if (mouseIsPressed && !isDragging) {
         if (mouseX > upBtn.x - dpadSize/2 && mouseX < upBtn.x + dpadSize/2 && mouseY > upBtn.y - dpadSize/2 && mouseY < upBtn.y + dpadSize/2) {
-          screenY = -moveSpeed;
-          isScreenPressed = true;
+          screenY = -moveSpeed; isScreenPressed = true;
         }
         if (mouseX > downBtn.x - dpadSize/2 && mouseX < downBtn.x + dpadSize/2 && mouseY > downBtn.y - dpadSize/2 && mouseY < downBtn.y + dpadSize/2) {
-          screenY = moveSpeed;
-          isScreenPressed = true;
+          screenY = moveSpeed; isScreenPressed = true;
         }
         if (mouseX > leftBtn.x - dpadSize/2 && mouseX < leftBtn.x + dpadSize/2 && mouseY > leftBtn.y - dpadSize/2 && mouseY < leftBtn.y + dpadSize/2) {
-          screenX = -moveSpeed;
-          isScreenPressed = true;
+          screenX = -moveSpeed; isScreenPressed = true;
         }
         if (mouseX > rightBtn.x - dpadSize/2 && mouseX < rightBtn.x + dpadSize/2 && mouseY > rightBtn.y - dpadSize/2 && mouseY < rightBtn.y + dpadSize/2) {
-          screenX = moveSpeed;
-          isScreenPressed = true;
+          screenX = moveSpeed; isScreenPressed = true;
         }
       }
 
+      // 이동 로직
       if (isDragging) {
         ballX = mouseX + offsetX;
         ballY = mouseY + offsetY;
@@ -86,10 +138,10 @@
       } else {
         let dx = 0;
         let dy = 0;
-        if (keyIsDown(LEFT_ARROW)) dx -= moveSpeed;
-        if (keyIsDown(RIGHT_ARROW)) dx += moveSpeed;
-        if (keyIsDown(UP_ARROW)) dy -= moveSpeed;
-        if (keyIsDown(DOWN_ARROW)) dy += moveSpeed;
+        if (keys['ArrowLeft']) dx -= moveSpeed;
+        if (keys['ArrowRight']) dx += moveSpeed;
+        if (keys['ArrowUp']) dy -= moveSpeed;
+        if (keys['ArrowDown']) dy += moveSpeed;
         
         if (dx !== 0 && dy !== 0) {
           dx *= 0.707;
@@ -99,14 +151,17 @@
         ballY += dy;
       }
 
+      // 화면 밖으로 나가지 않게 제한
       ballX = constrain(ballX, ballSize / 2, width - ballSize / 2);
       ballY = constrain(ballY, ballSize / 2, height - ballSize / 2);
 
+      // 잔상(history) 기록
       history.push({x: ballX, y: ballY});
       if (history.length > maxHistory) {
         history.shift();
       }
 
+      // 잔상 그리기
       for (let i = 0; i < history.length; i++) {
         let pos = history[i];
         let ratio = i / history.length;
@@ -120,46 +175,63 @@
         circle(pos.x, pos.y, ballSize);
       }
 
+      // 메인 공 그리기
       fill(255, 0, 0);
       circle(ballX, ballY, ballSize);
 
+      // 중간 지점 공(흰색) 그리기
       if (history.length > maxHistory / 2) {
         let midPos = history[Math.floor(history.length / 2)];
         fill(255, 255, 255, 255); 
         circle(midPos.x, midPos.y, ballSize);
       }
 
+      // D-Pad 버튼 배경 그리기
       fill(255, 255, 255, 30);
-      rectMode(CENTER);
-      rect(upBtn.x, upBtn.y, dpadSize, dpadSize, 15);
-      rect(downBtn.x, downBtn.y, dpadSize, dpadSize, 15);
-      rect(leftBtn.x, leftBtn.y, dpadSize, dpadSize, 15);
-      rect(rightBtn.x, rightBtn.y, dpadSize, dpadSize, 15);
-      rect(fsBtn.x, fsBtn.y, dpadSize, dpadSize, 15);
+      rectCenter(upBtn.x, upBtn.y, dpadSize, dpadSize, 15);
+      rectCenter(downBtn.x, downBtn.y, dpadSize, dpadSize, 15);
+      rectCenter(leftBtn.x, leftBtn.y, dpadSize, dpadSize, 15);
+      rectCenter(rightBtn.x, rightBtn.y, dpadSize, dpadSize, 15);
+      rectCenter(fsBtn.x, fsBtn.y, dpadSize, dpadSize, 15);
 
+      // D-Pad 화살표 그리기
       fill(255, 255, 255, 120);
       triangle(upBtn.x, upBtn.y - 12, upBtn.x - 12, upBtn.y + 12, upBtn.x + 12, upBtn.y + 12);
       triangle(downBtn.x, downBtn.y + 12, downBtn.x - 12, downBtn.y - 12, downBtn.x + 12, downBtn.y - 12);
       triangle(leftBtn.x - 12, leftBtn.y, leftBtn.x + 12, leftBtn.y - 12, leftBtn.x + 12, leftBtn.y + 12);
       triangle(rightBtn.x + 12, rightBtn.y, rightBtn.x - 12, rightBtn.y - 12, rightBtn.x - 12, rightBtn.y + 12);
 
+      // F/S 텍스트
       fill(255, 255, 255, 150);
-      textAlign(CENTER, CENTER);
-      textSize(16);
-      text("F/S", fsBtn.x, fsBtn.y);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '16px sans-serif';
+      ctx.fillText("F/S", fsBtn.x, fsBtn.y);
+
+      // 다음 프레임 요청
+      requestAnimationFrame(draw);
     }
 
-    function mousePressed() {
+    // 이벤트 리스너 핸들러
+    function handlePointerDown(e) {
+      updatePointerInfo(e);
+      mouseIsPressed = true;
+
       let cx = width / 2;
       let cy = height - 150;
       let dpadSize = 60;
 
+      // 전체화면 버튼 클릭 처리
       if (mouseX > cx - dpadSize/2 && mouseX < cx + dpadSize/2 && mouseY > cy - dpadSize/2 && mouseY < cy + dpadSize/2) {
-        let fs = fullscreen();
-        fullscreen(!fs);
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+        }
         return;
       }
 
+      // 공 드래그 시작 처리
       let d = dist(mouseX, mouseY, ballX, ballY);
       if (d < ballSize / 2) {
         isDragging = true;
@@ -168,13 +240,39 @@
       }
     }
 
-    function mouseReleased() {
+    function handlePointerUp() {
+      mouseIsPressed = false;
       isDragging = false;
     }
 
-    function windowResized() {
-      resizeCanvas(windowWidth, windowHeight);
+    function updatePointerInfo(e) {
+      let rect = canvas.getBoundingClientRect();
+      let event = e.touches ? e.touches[0] : e;
+      if (event) {
+        mouseX = event.clientX - rect.left;
+        mouseY = event.clientY - rect.top;
+      }
     }
+
+    // 마우스 이벤트
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('mousemove', (e) => { if (mouseIsPressed) updatePointerInfo(e); else updatePointerInfo(e); });
+    window.addEventListener('mouseup', handlePointerUp);
+
+    // 터치 이벤트 (모바일 지원)
+    window.addEventListener('touchstart', (e) => { handlePointerDown(e); e.preventDefault(); }, { passive: false });
+    window.addEventListener('touchmove', (e) => { updatePointerInfo(e); e.preventDefault(); }, { passive: false });
+    window.addEventListener('touchend', (e) => { handlePointerUp(); e.preventDefault(); }, { passive: false });
+
+    // 키보드 이벤트
+    window.addEventListener('keydown', (e) => keys[e.code] = true);
+    window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+    // 창 크기 조절 이벤트
+    window.addEventListener('resize', resizeCanvas);
+
+    // 프로그램 시작
+    setup();
   </script>
 </body>
 </html>
