@@ -1,100 +1,180 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미디어 아트워크</title>
-    <style>
-        /* 기본 화면 설정 */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: #fff;
-            font-family: 'Noto Sans KR', sans-serif;
-            overflow: hidden;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>p5.js 공 움직이기</title>
+  <!-- p5.js 라이브러리 불러오기 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <style>
+    /* 기본 여백을 없애고 스크롤바가 생기지 않도록 설정 */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #0f0f0f;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    let ballX, ballY;
+    let moveSpeed = 7;
+    let ballSize = 60;
+    let history = [];
+    let isDragging = false;
+    let offsetX, offsetY;
+    let maxHistory = 80;
 
-        /* 오프닝 화면 - 오래된 모니터(CRT) 스캔라인 효과 추가 */
-        #opening {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #050505;
-            /* 브라운관 모니터 특유의 미세한 가로 줄무늬 효과 */
-            background-image: linear-gradient(rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
-            background-size: 100% 4px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 1.2s ease-in-out;
-        }
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      ballX = width / 2;
+      ballY = height / 2;
+      noStroke();
+    }
 
-        /* 메인 타이틀: 과거, 현재, 미래 */
-        .crt-text {
-            position: relative;
-            font-size: 4.5rem;
-            font-weight: 300;
-            letter-spacing: 12px;
-            color: #e5e5e5; /* 완전 쨍한 흰색보다 살짝 톤다운된 흰색이 빈티지합니다 */
-            margin-bottom: 30px;
-            animation: subtle-flicker 4s infinite; /* 미세한 모니터 깜빡임 */
-        }
+    function draw() {
+      background(15);
 
-        /* 파란색 잔상 (왼쪽 강조) */
-        .crt-text::before {
-            content: attr(data-text); /* HTML의 data-text 값을 가져옴 */
-            position: absolute;
-            top: 0;
-            left: -6px; /* 왼쪽으로 어긋남 */
-            color: rgba(60, 160, 255, 0.9); /* 세련된 빈티지 모니터 블루 */
-            z-index: -1;
-            /* 왼쪽은 진하고 오른쪽으로 갈수록 투명해지는 그라데이션 마스크 */
-            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
-            mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
-            mix-blend-mode: screen; /* 색상이 빛처럼 자연스럽게 섞임 */
-        }
+      let dpadSize = 60;
+      let spacing = 70;
+      let cx = width / 2;
+      let cy = height - 150;
 
-        /* 빨간색 잔상 (오른쪽 강조) */
-        .crt-text::after {
-            content: attr(data-text);
-            position: absolute;
-            top: 0;
-            left: 6px; /* 오른쪽으로 어긋남 */
-            color: rgba(240, 70, 60, 0.9); /* 세련된 빈티지 모니터 레드 */
-            z-index: -2;
-            /* 오른쪽은 진하고 왼쪽으로 갈수록 투명해지는 그라데이션 마스크 */
-            -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
-            mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
-            mix-blend-mode: screen;
-        }
+      let upBtn = {x: cx, y: cy - spacing};
+      let downBtn = {x: cx, y: cy + spacing};
+      let leftBtn = {x: cx - spacing, y: cy};
+      let rightBtn = {x: cx + spacing, y: cy};
+      let fsBtn = {x: cx, y: cy};
 
-        /* 미세한 모니터 깜빡임(플리커) 애니메이션 */
-        @keyframes subtle-flicker {
-            0%, 95%, 100% { opacity: 1; }
-            96% { opacity: 0.8; }
-            97% { opacity: 1; }
-            98% { opacity: 0.85; }
-        }
+      let screenX = 0;
+      let screenY = 0;
+      let isScreenPressed = false;
 
-        #opening p {
-            font-size: 1.1rem;
-            color: #888;
-            cursor: pointer;
-            animation: blink 2s infinite;
+      if (mouseIsPressed && !isDragging) {
+        if (mouseX > upBtn.x - dpadSize/2 && mouseX < upBtn.x + dpadSize/2 && mouseY > upBtn.y - dpadSize/2 && mouseY < upBtn.y + dpadSize/2) {
+          screenY = -moveSpeed;
+          isScreenPressed = true;
         }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        if (mouseX > downBtn.x - dpadSize/2 && mouseX < downBtn.x + dpadSize/2 && mouseY > downBtn.y - dpadSize/2 && mouseY < downBtn.y + dpadSize/2) {
+          screenY = moveSpeed;
+          isScreenPressed = true;
         }
+        if (mouseX > leftBtn.x - dpadSize/2 && mouseX < leftBtn.x + dpadSize/2 && mouseY > leftBtn.y - dpadSize/2 && mouseY < leftBtn.y + dpadSize/2) {
+          screenX = -moveSpeed;
+          isScreenPressed = true;
+        }
+        if (mouseX > rightBtn.x - dpadSize/2 && mouseX < rightBtn.x + dpadSize/2 && mouseY > rightBtn.y - dpadSize/2 && mouseY < rightBtn.y + dpadSize/2) {
+          screenX = moveSpeed;
+          isScreenPressed = true;
+        }
+      }
 
-        /* 메인 작품 영역 */
-        #main-content {
-            width: 100
+      if (isDragging) {
+        ballX = mouseX + offsetX;
+        ballY = mouseY + offsetY;
+      } else if (isScreenPressed) {
+        if (screenX !== 0 && screenY !== 0) {
+          screenX *= 0.707;
+          screenY *= 0.707;
+        }
+        ballX += screenX;
+        ballY += screenY;
+      } else {
+        let dx = 0;
+        let dy = 0;
+        if (keyIsDown(LEFT_ARROW)) dx -= moveSpeed;
+        if (keyIsDown(RIGHT_ARROW)) dx += moveSpeed;
+        if (keyIsDown(UP_ARROW)) dy -= moveSpeed;
+        if (keyIsDown(DOWN_ARROW)) dy += moveSpeed;
+        
+        if (dx !== 0 && dy !== 0) {
+          dx *= 0.707;
+          dy *= 0.707;
+        }
+        ballX += dx;
+        ballY += dy;
+      }
+
+      ballX = constrain(ballX, ballSize / 2, width - ballSize / 2);
+      ballY = constrain(ballY, ballSize / 2, height - ballSize / 2);
+
+      history.push({x: ballX, y: ballY});
+      if (history.length > maxHistory) {
+        history.shift();
+      }
+
+      for (let i = 0; i < history.length; i++) {
+        let pos = history[i];
+        let ratio = i / history.length;
+
+        let r = map(ratio, 0, 1, 0, 255);
+        let g = 0;
+        let b = map(ratio, 0, 1, 255, 0);
+        let alpha = map(ratio, 0, 1, 0, 45); 
+
+        fill(r, g, b, alpha);
+        circle(pos.x, pos.y, ballSize);
+      }
+
+      fill(255, 0, 0);
+      circle(ballX, ballY, ballSize);
+
+      if (history.length > maxHistory / 2) {
+        let midPos = history[Math.floor(history.length / 2)];
+        fill(255, 255, 255, 255); 
+        circle(midPos.x, midPos.y, ballSize);
+      }
+
+      fill(255, 255, 255, 30);
+      rectMode(CENTER);
+      rect(upBtn.x, upBtn.y, dpadSize, dpadSize, 15);
+      rect(downBtn.x, downBtn.y, dpadSize, dpadSize, 15);
+      rect(leftBtn.x, leftBtn.y, dpadSize, dpadSize, 15);
+      rect(rightBtn.x, rightBtn.y, dpadSize, dpadSize, 15);
+      rect(fsBtn.x, fsBtn.y, dpadSize, dpadSize, 15);
+
+      fill(255, 255, 255, 120);
+      triangle(upBtn.x, upBtn.y - 12, upBtn.x - 12, upBtn.y + 12, upBtn.x + 12, upBtn.y + 12);
+      triangle(downBtn.x, downBtn.y + 12, downBtn.x - 12, downBtn.y - 12, downBtn.x + 12, downBtn.y - 12);
+      triangle(leftBtn.x - 12, leftBtn.y, leftBtn.x + 12, leftBtn.y - 12, leftBtn.x + 12, leftBtn.y + 12);
+      triangle(rightBtn.x + 12, rightBtn.y, rightBtn.x - 12, rightBtn.y - 12, rightBtn.x - 12, rightBtn.y + 12);
+
+      fill(255, 255, 255, 150);
+      textAlign(CENTER, CENTER);
+      textSize(16);
+      text("F/S", fsBtn.x, fsBtn.y);
+    }
+
+    function mousePressed() {
+      let cx = width / 2;
+      let cy = height - 150;
+      let dpadSize = 60;
+
+      if (mouseX > cx - dpadSize/2 && mouseX < cx + dpadSize/2 && mouseY > cy - dpadSize/2 && mouseY < cy + dpadSize/2) {
+        let fs = fullscreen();
+        fullscreen(!fs);
+        return;
+      }
+
+      let d = dist(mouseX, mouseY, ballX, ballY);
+      if (d < ballSize / 2) {
+        isDragging = true;
+        offsetX = ballX - mouseX;
+        offsetY = ballY - mouseY;
+      }
+    }
+
+    function mouseReleased() {
+      isDragging = false;
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>
